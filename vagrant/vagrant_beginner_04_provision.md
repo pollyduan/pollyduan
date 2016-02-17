@@ -1,6 +1,6 @@
 从字面上来看，provision是准备，实现的功能是在原生镜像的基础上，进行一些附加的操作，以改变虚拟机的环境，比如安装应用，发布程序等。
 
-一 helloword
+1 helloword
 ---
 
 在vagrant的 Vagrant.configure(2) do |config| 节点内，加入如下代码：
@@ -39,12 +39,143 @@ Tips: 运行后可能会提示：default: stdin: is not a tty 错误，不影响
 config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
 ```
 
-二 shell
+什么是provision任务
 ---
 
-### 2.1 基本使用
+provision任务是预先设置的一些操作指令，格式：
 
-helloword只是一个开始，对于inline模式，如果脚本较多，可以在Vagrantfile中指定内联脚本，在Vagrant.configure节点外面，写入命名内联脚本：
+```
+config.vm.provision 命令字 json格式参数
+```
+
+```
+config.vm.provion 命令字 do |s|
+	s.参数名 = 参数值
+end
+```
+
+根据任务操作的对象，命令字分为：
+
+- Shell
+- File
+- Ansible
+- CFEngine
+- Chef
+- Docker
+- Puppet
+- Salt
+
+根据vagrantfile的层次，分为：
+
+- configure级：它定义在 `Vagrant.configure("2")` 的下一层次，形如： `config.vm.provision ...`
+- vm级：它定义在 `config.vm.define "web" do |web|` 的下一层次，`web.vm.provision ...`
+
+执行的顺序是先执行configure级任务，再执行vm级任务，即便configure级任务在vm定义的下面才定义。例如：
+
+```
+Vagrant.configure("2") do |config|
+  config.vm.provision "shell", inline: "echo foo"
+
+  config.vm.define "web" do |web|
+    web.vm.provision "shell", inline: "echo bar"
+  end
+
+  config.vm.provision "shell", inline: "echo baz"
+end
+```
+
+输出结果：
+
+```
+==> default: "foo"
+==> default: "baz"
+==> default: "bar"
+```
+
+2 如何执行provision任务
+---
+
+尝试了helloword，我们来了解一下provision任务是怎么运行的。
+
+- 启动时自动执行，缺省地，任务只执行一次，第二次启动就不会自动运行了。如果需要每次都自动运行，需要为provision指定`run:"always"`属性
+- 启动时运行，在启动命令加 `--provision` 参数,适用于 `vagrant up` 和 `vagrant reload`
+- vm启动状态时，执行 `vagrant provision` 命令。
+
+在编写provision任务时，可能同时存在几种类型的任务，但执行时可能只执行一种，如，我指向执行shell类型的任务。可以如下操作：
+
+```
+vagrant provision --provision-with shell
+```
+
+3 shell
+---
+
+### 3.1 基本使用
+
+#### 3.1.1 数据类型
+
+类型名|范例
+---|---
+string|"arg1"
+hash|{key1:value1,key2:value2}
+array|["arg1","arg2"]
+boolean| true,false
+
+#### 3.1.2 参数：
+必选：inline 或者 path
+可选：
+
+参数名|类型|说明
+---|---|---
+args|string or array|传递给shell或path的参数
+env|hash|传递给脚本的环境变量
+binary|boolean|是否替换windows的行结束符，这个参数名有点奇怪
+privileged|boolean|是否提权运行，如sudo执行，缺省为true
+upload_path|boolean|上传到vm中的路径，缺省是/tmp/vagrant-shell
+keep_color|boolean|Vagrant automatically colors output in green and red depending on whether the output is from stdout or stderr. If this is true, Vagrant will not do this, allowing the native colors from the script to be outputted.
+name|string|This value will be displayed in the output so that identification by the user is easier when many shell provisioners are present.
+powershell_args|string|windows相关，略
+powershell_elevated_interactive|boolean|windows相关，略
+
+在有些情况下，vagrant会帮你处理引号，但建议，都匹配好双引号，可读性也好一些。
+
+#### 3.1.3 使用规则
+
+##### 3.1.3.1 单行脚本
+
+helloword只是一个开始，对于inline模式，命令只能在写在一行中。一个以上的命令，可以写在同一行，用分号分隔，这属于shell编程的范畴，在这里不多解释。
+
+单行脚本使用的基本格式：
+
+```
+config.vm.provision "shell", inline: "echo foo"
+```
+
+shell命令的参数还可以写入`do ... end`代码块中，如下：
+
+```
+config.vm.provision "shell" do |s|
+  s.inline = "echo hello provision."
+end
+```
+
+其他，如后面提到的path参数也是一样的。
+
+一个shell代码段，在1.7.0+版本，是可以命名的，如：
+
+```
+config.vm.provision "myshell,type:"shell" do |s|
+  s.inline = "echo hello provision."
+end
+```
+
+Tips: 命名块如果重名，会有覆盖问题。
+
+一个shell节点内，如果连续写一条以上s.inline,则只有最后一条有效，前面的会被后面的覆盖掉。
+
+##### 3.1.3.2 内联脚本
+
+如果要执行脚本较多，可以在Vagrantfile中指定内联脚本，在Vagrant.configure节点外面，写入命名内联脚本：
 
 ```
 $script = <<SCRIPT
@@ -59,7 +190,9 @@ SCRIPT
   config.vm.provision "shell", inline: $script
 ```
 
-也可以把代码保存在一个shell里，进行调用：
+##### 3.1.3.3 外部脚本
+
+也可以把代码写入代码文件，并保存在一个shell里，进行调用：
 
 ```
   config.vm.provision "shell", path: "script.sh"
@@ -79,7 +212,7 @@ Tips：path可以使用http/https来访问远程脚本，这个在部署时访�
   config.vm.provision "shell", path: "https://example.com/provisioner.sh"
 ```
 
-Tips: 脚本实际上是在vm里运行的，做个测试验证一下，在Vagrant.configure节点外面，写入命名内联脚本：
+Tips: 脚本文件在host机器上，而脚本实际上是在vm里运行的，做个测试验证一下，在Vagrant.configure节点外面，写入命名内联脚本：
 
 ```
 $script = <<SCRIPT
@@ -90,7 +223,7 @@ SCRIPT
 
 检查结果， /etc/vagrant_provisioned_at 这个文件不在host主机里，而是在vm虚机里。
 
-### 2.2 脚本参数
+### 3.2 脚本参数
 
 如果要执行的脚本需要参数，那么使用args属性进行传递：
 
@@ -108,7 +241,7 @@ Tips: 这两args有两层引号，如果去掉一层，字符串中的逗号会�
 s.args   = ["hello, world!"]
 ```
 
-Tips: 多个参数，你可以把args理解为一个json 数组，只要在inline里用$x进行引用即可。
+Tips: 多个参数，你可以把args理解为一个json 数组，只要在inline里用 `$x` 进行引用即可。
 
 ### 2.3 环境变量
 
@@ -134,7 +267,7 @@ Tips: 多个参数，你可以把args理解为一个json 数组，只要在inlin
 ```
   config.vm.provision "shell" do |s|
     s.inline = "echo $1 $JAVA_HOME $2 $PATH"
-    s.env = {PATH:"$JAVA_HOME/bin:$PATH",JAVA_HOME:"/opt/java"}
+    s.env = {JAVA_HOME:"/opt/java",PATH:"$JAVA_HOME/bin:$PATH"}
     s.args   = ["java_home is ",";PATH ="]
   end
 ```
@@ -142,14 +275,37 @@ Tips: 多个参数，你可以把args理解为一个json 数组，只要在inlin
 执行结果：
 
 ```
-==> default: java_home is /opt/java ;PATH = /bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+==> default: java_home is /opt/java ;PATH = /opt/java/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 ```
 
-Tips: 环境变量可以引用已经存在的环境变量，如PATH:"/opt/java/bin:$PATH",结果是在原有的PATH环境变量前面增加了一个路径。
+Tips: 环境变量可以引用已经存在的环境变量，如 `PATH:"/opt/java/bin:$PATH"`,结果是在原有的PATH环境变量前面增加了一个路径。
 
-Tips: env新增的环境变量，如JAVA_HOME，系统中原来是没有的，在同时设置的环境变量中也是可以引用的，而且与顺序无关。
+Tips: env新增的环境变量，是顺序执行赋值操作的，实例中JAVA_HOME，系统中原来是没有的，如果JAVA_HOME和PATH这两个参数顺序换一下，把JAVA_HOME放在后面，PATH在拼接JAVA_HOME的时候取到的是系统原来的值，这里是null。
 
-三 文件操作
+```
+  config.vm.provision "shell" do |s|
+    s.inline = "echo $1 $JAVA_HOME $2 $PATH"
+    s.env = {PATH:"$JAVA_HOME/bin:$PATH",JAVA_HOME:"/opt/java"}
+    s.args   = ["java_home is ",";PATH ="]
+  end
+```
+
+结果是：
+`==> default: java_home is /opt/java ;PATH = /bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games`
+
+这里出错了，本来应该是`/opt/java/bin`，结果变成了`/bin`。
+
+同样，如果在系统的/etc/profile中加入：`export JAVA_HOME=/usr/local/jdk`
+
+那么上面例子的执行结果将是：
+
+```
+==> default: java_home is /usr/local/jdk ;PATH = /usr/local/jdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+```
+
+Tips: provision里设置的环境变量，只对provision自身操作有效，`vagrant ssh` 登录vm，里边的变量值是不会变的。
+
+4 文件操作
 ---
 
 file 操作有两个参数：
@@ -163,7 +319,7 @@ file 操作有两个参数：
 
 将host主机的 "./Vagrantfile" 上传到 vm虚拟机的目标文件 "./Vagrantfile" 。
 
-四 集群管理，自动化配置等系统
+5 集群管理，自动化配置等系统
 ---
 
 ansible,cfengine,Chef,puppet
@@ -173,10 +329,10 @@ ansible,cfengine,Chef,puppet
 cfengine是一个Linux的自动化配置系统。
 Chef 是一套Linux的配置管理系统。
 
-五 Docker 面向容器的虚拟解决方案
+6 Docker 面向容器的虚拟解决方案
 ---
 
-六 Salt
+7 Salt
 ---
 
 Salt 是一个强大的远程执行管理器，用于快速和高效的服务器管理。
