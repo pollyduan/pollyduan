@@ -54,7 +54,9 @@ config.vm.provion 命令字 do |s|
 end
 ```
 
-根据任务操作的对象，命令字分为：
+每一个 `config.vm.provision 命令字` 代码段，我们称之为一个provisioner。
+
+根据任务操作的对象，provisioner可以分为：
 
 - Shell
 - File
@@ -101,7 +103,7 @@ end
 - 启动时运行，在启动命令加 `--provision` 参数,适用于 `vagrant up` 和 `vagrant reload`
 - vm启动状态时，执行 `vagrant provision` 命令。
 
-在编写provision任务时，可能同时存在几种类型的任务，但执行时可能只执行一种，如，我指向执行shell类型的任务。可以如下操作：
+在编写provision任务时，可能同时存在几种类型的任务，但执行时可能只执行一种，如，我只执行shell类型的任务。可以如下操作：
 
 ```
 vagrant provision --provision-with shell
@@ -122,7 +124,9 @@ array|["arg1","arg2"]
 boolean| true,false
 
 #### 3.1.2 参数：
+
 必选：inline 或者 path
+
 可选：
 
 参数名|类型|说明
@@ -132,8 +136,8 @@ env|hash|传递给脚本的环境变量
 binary|boolean|是否替换windows的行结束符，这个参数名有点奇怪
 privileged|boolean|是否提权运行，如sudo执行，缺省为true
 upload_path|boolean|上传到vm中的路径，缺省是/tmp/vagrant-shell
-keep_color|boolean|Vagrant automatically colors output in green and red depending on whether the output is from stdout or stderr. If this is true, Vagrant will not do this, allowing the native colors from the script to be outputted.
-name|string|This value will be displayed in the output so that identification by the user is easier when many shell provisioners are present.
+keep_color|boolean|设置是否脚本自身控制颜色，缺省为false，表示使用绿色和红色来显示输出到stdout和stderr的消息
+name|string|给当前执行的脚本命名，与provisioner名称无关
 powershell_args|string|windows相关，略
 powershell_elevated_interactive|boolean|windows相关，略
 
@@ -161,7 +165,7 @@ end
 
 其他，如后面提到的path参数也是一样的。
 
-一个shell代码段，在1.7.0+版本，是可以命名的，如：
+一个shell代码段，在1.7.0+版本，这个provisioner是可以命名的，如：
 
 ```
 config.vm.provision "myshell,type:"shell" do |s|
@@ -169,7 +173,7 @@ config.vm.provision "myshell,type:"shell" do |s|
 end
 ```
 
-Tips: 命名块如果重名，会有覆盖问题。
+Tips: provisioner命名块如果重名，会有覆盖问题。
 
 一个shell节点内，如果连续写一条以上s.inline,则只有最后一条有效，前面的会被后面的覆盖掉。
 
@@ -310,8 +314,8 @@ Tips: provision里设置的环境变量，只对provision自身操作有效，`v
 
 file 操作有两个参数：
 
-- source : 源文件
-- destination : 目标文件
+- source : 源文件或文件夹
+- destination : 目标文件或文件
 
 ```
   config.vm.provision "file", source: "./Vagrantfile", destination: "Vagrantfile"
@@ -319,21 +323,29 @@ file 操作有两个参数：
 
 将host主机的 "./Vagrantfile" 上传到 vm虚拟机的目标文件 "./Vagrantfile" 。
 
-5 集群管理，自动化配置等系统
+Tips: 文件是通过scp上传到vm的，使用的是缺省用户，可使用`vagrant ssh-config` 查看缺省用户的名称，一般为vagrant。所以，目的路径需要让默认用户拥有写权限。
+
+5 扩展操作
 ---
 
+vagrant可以集成其他服务器运维工具，来增强服务器管理能力。在使用这些技术之前，需要系统地学习这些技术。而每一套系统都有很多内容学习。本文只简单介绍，不做详细展开。
+
+### 5.1 集群管理，自动化配置等系统
+
 ansible,cfengine,Chef,puppet
-每一套系统都可以写本书了，所以这里不详细说明，另外立题，先占位。
+每一套系统都可以写本书了，所以这里不详细说明。
 
 简单来说 Ansible 是一个极简化的应用和系统部署工具，类似 Puppet、Chef、SaltStack。由于默认使用 ssh 管理服务器（集群），配置文件采用 yaml 而不是某一种特定语言制定。
 cfengine是一个Linux的自动化配置系统。
 Chef 是一套Linux的配置管理系统。
 
-6 Docker 面向容器的虚拟解决方案
----
+### 5.2 Docker 面向容器的虚拟解决方案
 
-7 Salt
----
+Docker 是一个开源的应用容器引擎，让开发者可以打包他们的应用以及依赖包到一个可移植的容器中，然后发布到任何流行的 Linux 机器上。docker不会虚拟guest os系统，几乎没有性能开销，最重要的是,他们不依赖于任何语言、框架包括系统。
+
+Docker自身提供了很多优秀的工具和客户端，目前vagant支持的操作并不方便，建议直接使用docker的客户端工具学习和使用docker。
+
+###5.3  Salt
 
 Salt 是一个强大的远程执行管理器，用于快速和高效的服务器管理。
 
