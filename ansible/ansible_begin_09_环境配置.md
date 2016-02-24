@@ -1,7 +1,7 @@
 ansible学习笔记 - 配置
 ===
 
-1 安装ansible
+1 
 ---
 
 2 ansible配置
@@ -240,5 +240,5 @@ database_server: storage.example.org
 	Tips: ansible 1.2+ 版本中`group_vars/` 和 `host_vars/`可能同时存在于playbook和inventory主配置文件目录中，如果这样，那么playbook中的配置优先生效。
 	Tips: 推荐将inventory主配置文件和变量文件用git进行管理，以便于跟踪配置的变化。
 
-更多请参考 [ansible inventory 官方文档](http://docs.ansible.com/ansible/intro_inventory.html)。
+更多请参考 [ansible inventory 官方文档](http://docs.ansible.com/ansible/intro_configuration.html)。
 
