@@ -105,8 +105,10 @@ ansible-doc yum
 
 用来检查主机是否存活。
 
-3 file
+3 Files文件模块
 ---
+
+### 3.1 file
 
 此处的file为广义的文件，包括文件、软链和目录等。该模块用于设置文件的属性，或者删除文件。
 
@@ -140,11 +142,67 @@ src|要操作的源文件名，如果软链的源文件
 #创建文件
 ansible 192.168.33.20 -m file -a 'path=/tmp/newfile state=touch'
 #创建目录
-ansible 192.168.33.20 -m file -a 'path=/tmp/dir1 state=directory owner=root mode 666'
+ansible 192.168.33.20 -m file -a 'path=/tmp/dir1 state=directory owner=root mode=666'
+#创建软链
+ansible 192.168.33.20 -m file -a 'src=/etc/ansible/hosts dest=/tmp/inventory state=link'
 ```
 
-4 copy
----
+### 3.2 copy
 
 用于从控制机上传文件到远程主机。
+
+参数：
+
+dest 是保存的目标文件；这个参数是必须的。
+
+src和content二者必须提供一个。其中content是一个字符串，用来写入目标文件。而src是源文件路径，如果src是一个目录，则递归复制。如果src以`/`结尾，则复制这个目录下的所有文件；如果不是以`/`结尾，则复制整个目录。
+
+backup参数，如果目标文件存在，且内容发生了变化时，是否备份目标文件。该选项对文件夹无效。
+
+mode、group、owner可以设置目标文件属性，同file模块类似。
+
+```
+#向远程主机的目标文件写入一个字符串
+ansible 192.168.33.20 -m copy -a 'content="abcd efg" dest=~/copyfile.txt'
+
+#复制文件
+ansible 192.168.33.20 -m copy -a 'src=~/1.txt dest=~/'
+
+#复制tmp文件夹,tmp文件夹就保存在~/中
+ansible 192.168.33.20 -m copy -a 'src=~/tmp dest=~/'
+
+#复制tmp文件夹下的所有文件，tmp文件夹里的文件直接保存到~/中
+ansible 192.168.33.20 -m copy -a 'src=~/tmp/ dest=~/'
+```
+
+4 commands命令模块
+---
+
+### 4.1 shell
+
+在远程节点执行一个命令。执行的命令字符串是必须的，他没有key名。
+
+命令格式为字符串，带有空格分隔的多个参数。如`some_command arg1 arg2 ...`
+
+模块参数：
+
+chdir 在运行命令之前进入工作目录
+creates 传入一个文件名，如果文件存在则不运行命令，比如pid文件存在不运行服务。
+removes 与creates相反，如果文件不存在则不运行。
+
+```
+#下面命令会在远程主机执行显示abcd
+ansible 192.168.33.20 -m shell -a "echo abcd"
+#/home/tmp文件不存在，这个命令会被运行
+ansible 192.168.33.20 -m shell -a "creates=/home/tmp echo abcd"
+#/home/tmp文件不存在，这个命令不会被运行
+ansible 192.168.33.20 -m shell -a "removes=/home/tmp echo abcd"
+#进入工作目录后处理当前目录的文件
+ansible 192.168.33.20 -m shell -a "chdir=/opt/logs/myapp tar cvfz log201602.tar.gz *201602*.log'
+```
+
+### 4.2 command
+
+参数与shell模块完全一样，区别在于command不是使用shell运行的，所以系统环境变量以及管道符等特殊符号`>,|,<,&`不可使用。
+
 
